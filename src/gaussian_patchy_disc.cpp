@@ -8,6 +8,8 @@
 #include <iostream>
 #include "System.h"
 #include <csignal>
+#include <vector>
+#include <algorithm>
 
 int main(int argc, char** argv)
 {
@@ -27,11 +29,11 @@ int main(int argc, char** argv)
 	signal(SIGINT, gbl_terminate);
 	signal(SIGUSR2, gbl_terminate);
 
-	//Load the input file and Initialise (inp is a json object)
+	//Load the input file and Initialise (inp is a json object) 
     inp = ReadJsonFromFile(inputFileName);
     parseInputFile();
-    double surface_interaction=6; // Right now surface interaction is not 
     std::vector<Particle> particles(nParticles);    // particle container
+    std::vector<unsigned int> bonds(nParticles ,0); 
     bool isIsotropic[nParticles];                   // whether the potential of each particle is isotropic
     particles.resize(nParticles);                   // Resize particle container.
     Box box(boxSizeVec);
@@ -68,39 +70,39 @@ int main(int argc, char** argv)
      Model* ppatchyDisc = nullptr;
      if (interaction == "GaussianPatchyDisc")
      {
-         GaussianPatchyDisc patchyDisc(box, particles, cells, top, maxInteractions, interactionEnergy, interactionRange);
+         GaussianPatchyDisc patchyDisc(box, particles, cells, top, bonds, maxInteractions, interactionEnergy, interactionRange);
          hasFiniteRepulsion = true;
          std::cout << "Gaussian Patchy Disc interaction initialized." << std::endl;
-         ppatchyDisc= new GaussianPatchyDisc(box, particles, cells, top, maxInteractions, interactionEnergy, interactionRange);
+         ppatchyDisc= new GaussianPatchyDisc(box, particles, cells, top, bonds, maxInteractions, interactionEnergy, interactionRange);
      }
      else if (interaction == "KFOpenSurfPatchyDisc")
      {
-         KFOpenSurfPatchyDisc patchyDisc(box, particles, cells, top, maxInteractions, interactionEnergy, interactionRange);
+         KFOpenSurfPatchyDisc patchyDisc(box, particles, cells, top, bonds, maxInteractions, interactionEnergy, interactionRange);
          hasFiniteRepulsion = true;
          std::cout << "Kern Frenkel Patchy Disc interaction with opening and surface interaction initialized." << std::endl;
  //        ppatchyDisc=&patchyDisc;
-         ppatchyDisc= new KFOpenSurfPatchyDisc(box, particles, cells, top, maxInteractions, interactionEnergy, interactionRange); 
+         ppatchyDisc= new KFOpenSurfPatchyDisc(box, particles, cells, top, bonds, maxInteractions, interactionEnergy, interactionRange); 
      }
      else if (interaction == "GaussianPatchyDiscHR")
      {
-         GaussianPatchyDiscHR patchyDisc(box, particles, cells, top, maxInteractions, interactionEnergy, interactionRange);
+         GaussianPatchyDiscHR patchyDisc(box, particles, cells, top, bonds, maxInteractions, interactionEnergy, interactionRange);
          hasFiniteRepulsion = false;
          std::cout << "Gaussian Patchy Disc interaction with hard repulsion initialized." << std::endl;
-         ppatchyDisc= new GaussianPatchyDiscHR(box, particles, cells, top, maxInteractions, interactionEnergy, interactionRange); 
+         ppatchyDisc= new GaussianPatchyDiscHR(box, particles, cells, top, bonds, maxInteractions, interactionEnergy, interactionRange); 
 ;
      }
      else if (interaction == "GaussianPatchyDiscHRSW")
      {
-         GaussianPatchyDiscHRSW patchyDisc(box, particles, cells, top, maxInteractions, interactionEnergy, interactionRange);
+         GaussianPatchyDiscHRSW patchyDisc(box, particles, cells, top, bonds, maxInteractions, interactionEnergy, interactionRange);
          hasFiniteRepulsion = false;
          std::cout << "Gaussian Patchy Disc HRSW interaction initialized." << std::endl;
-         ppatchyDisc= new GaussianPatchyDiscHRSW(box, particles, cells, top, maxInteractions, interactionEnergy, interactionRange); 
+         ppatchyDisc= new GaussianPatchyDiscHRSW(box, particles, cells, top, bonds, maxInteractions, interactionEnergy, interactionRange); 
 
      }
      else
      {
-         GaussianPatchyDisc patchyDisc(box, particles, cells, top, maxInteractions, interactionEnergy, interactionRange);
-         ppatchyDisc= new GaussianPatchyDisc(box, particles, cells, top, maxInteractions, interactionEnergy, interactionRange);
+         GaussianPatchyDisc patchyDisc(box, particles, cells, top, bonds, maxInteractions, interactionEnergy, interactionRange);
+         ppatchyDisc= new GaussianPatchyDisc(box, particles, cells, top, bonds, maxInteractions, interactionEnergy, interactionRange);
          std::cerr << "[ERROR] Invalid interaction ("<<interaction<<"!\n";
          exit(EXIT_FAILURE);
     }

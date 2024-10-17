@@ -42,6 +42,11 @@ struct MoveParams
     double stepSize;                            //!< The magnitude of the trial move.
     std::vector<double> trialVector;            //!< Vector for trial move.
     Particle preMoveParticle;                   //!< Particle state before the trial move.
+    Particle postMoveParticle;                   //!< Particle state before the trial move.
+
+    std::vector<unsigned int> preMoveBonds; //!< the number of particles the neighbours are in contact with   
+    std::vector<unsigned int> postMoveBonds; //!< the number of particles the neighbours are in contact with   
+
 };
 
 class SingleParticleMove
@@ -122,9 +127,10 @@ private:
     bool is3D;                                  //!< Whether the simulation is three-dimensional.
     bool isIsotropic;                           //!< Whether the potential is isotropic.
     double energyChange;                        //!< Energy change resulting from trial move.
-
+    double initialEnergy;                       //!< Initial interaction energy of state a
     //! Propose a trial particle translation/rotation.
     void proposeMove();
+    void proposeMove_post();
 
     //! Determine whether move is accepted.
     bool accept();

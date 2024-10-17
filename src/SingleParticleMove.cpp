@@ -78,39 +78,69 @@ void SingleParticleMove::step()
     nAttempts++;
 
     // Propose a trial move.
-    proposeMove();
-    // Check whether move was accepted.
-    if (accept())
+    if (nAttempts-2*nAccepts<=0)
     {
-        // Increment number of accepted moves.
-        nAccepts++;
-        if (moveParams.isChange)
-        {
-            nChanges++;
-        }
-        else if (!moveParams.isRotation)
-        {
-
-
-            // Increment number of rotations.
-            nRotations += moveParams.isRotation;
-
-            unsigned int oldCell = moveParams.preMoveParticle.cell;
-            unsigned int newCell = model->particles[moveParams.seed].cell;
-
-            // update cell list
-            if (oldCell != newCell)
+    	proposeMove();
+    	// Check whether move was accepted.
+    	if (accept())
+    	{
+            // Increment number of accepted moves.
+            nAccepts++;
+            if (moveParams.isChange)
             {
-                model->particles[moveParams.seed].cell = oldCell;
-                model->cells.updateCell(newCell, model->particles[moveParams.seed], model->particles);
+                nChanges++;
             }
-         } else {
-            // Increment number of rotations.
-            nRotations += moveParams.isRotation;
-         }
+            else if (!moveParams.isRotation)
+            {
+                // Increment number of rotations.
+                nRotations += moveParams.isRotation;
+                unsigned int oldCell = moveParams.preMoveParticle.cell;
+                unsigned int newCell = model->particles[moveParams.seed].cell;
+                // update cell list
+                if (oldCell != newCell)
+       	        {
+                    model->particles[moveParams.seed].cell = oldCell;
+                    model->cells.updateCell(newCell, model->particles[moveParams.seed], model->particles);
+            	}
+            } else {
+                // Increment number of rotations.
+                nRotations += moveParams.isRotation;
+            }
+    	} else {
+        		// Revert particle to pre-move state.
+            model->particles[moveParams.seed] = moveParams.preMoveParticle;
+            model->bonds = moveParams.preMoveBonds;
+    	}
     } else {
-        // Revert particle to pre-move state.
-        model->particles[moveParams.seed] = moveParams.preMoveParticle;
+        proposeMove_post();
+        // Check whether move was accepted.
+        if (accept())
+        {
+            // Increment number of accepted moves.
+            nAccepts++;
+            unsigned int oldCell = model->particles[moveParams.seed].cell;
+            model->particles[moveParams.seed] = moveParams.postMoveParticle;
+            model->bonds = moveParams.postMoveBonds;
+
+            if (moveParams.isChange)
+            {
+                nChanges++;
+            } else if (!moveParams.isRotation) {
+                // Increment number of rotations.
+                nRotations += moveParams.isRotation;
+                unsigned int newCell = moveParams.postMoveParticle.cell;
+                // update cell list
+                if (oldCell != newCell)
+                {
+                    model->particles[moveParams.seed].cell = oldCell;
+                    model->cells.updateCell(newCell, model->particles[moveParams.seed], model->particles);
+                }
+            } else {
+                // Increment number of rotations.
+                nRotations += moveParams.isRotation;
+            }
+        }
+
     }
 }
 
@@ -140,29 +170,39 @@ void SingleParticleMove::reset()
 
 void SingleParticleMove::proposeMove()
 {
-    // Choose a seed particle.
+    // Variables for the surface potentials, they will be moved in another section
+    std::vector<bool> init_contacts(model->particles.size(),false); // Flag vector of the initial contacts
+    std::vector<bool> final_contacts(model->particles.size(),false); // Flag vector of the  final contacts
+    std::vector<int> init_id_contacts; // ids for the initial contacts
+    std::vector<int> final_id_contacts; //ids for the final contacts
+    final_id_contacts.reserve(model->maxInteractions);
+    init_id_contacts.reserve(model->maxInteractions);
+    int delta_contacts=0;
+   // Choose a seed particle.
     moveParams.seed = rng.integer(0, model->particles.size()-1);
     double changenergy=0;
+    energyChange=0;
     // Choose a random point on the surface of the unit sphere/circle.
     for (unsigned int i=0;i<model->box.dimension;i++)
         moveParams.trialVector[i] = rng.normal();
 
     // Calculate pre-move energy.
 #ifndef ISOTROPIC
-    double initialEnergy = model->computeEnergy(moveParams.seed,
+    initialEnergy = model->computeEnergy(moveParams.seed, model->particles[moveParams.seed].cell,
         &model->particles[moveParams.seed].position[0],
         &model->particles[moveParams.seed].orientation[0],
-        &model->particles[moveParams.seed].patchstates[0]);
+        &model->particles[moveParams.seed].patchstates[0], init_id_contacts, model->bonds);
     double initial_state=0;
     for (unsigned int ii=0;ii< model->particles[moveParams.seed].patchstates.size();ii++) {
         initial_state+=(model->particles[moveParams.seed].patchstates[ii]>0);
     }
 #else
-    double initialEnergy = model->computeEnergy(moveParams.seed,
-        &model->particles[moveParams.seed].position[0]);
-    double intial_state=0;
+    initialEnergy = model->computeEnergy(moveParams.seed, model->particles[moveParams.seed].cell, 
+        &model->particles[moveParams.seed].position[0], init_id_contacts, model->bonds);
+    double initial_state=0;
 #endif
 
+    // Assign a flag there
     // Normalise the trial vector.
     double norm = computeNorm(moveParams.trialVector);
     for (unsigned int i=0;i<model->box.dimension;i++)
@@ -193,7 +233,7 @@ void SingleParticleMove::proposeMove()
 
     // Store initial coordinates/orientation.
     moveParams.preMoveParticle = model->particles[moveParams.seed];
-
+    moveParams.preMoveBonds=model->bonds;
     // Execute the move.
     if (moveParams.isChange)
     {
@@ -226,29 +266,217 @@ void SingleParticleMove::proposeMove()
 
     // Calculate post-move energy.
 #ifndef ISOTROPIC
-    double finalEnergy = model->computeEnergy(moveParams.seed,
+    double finalEnergy = model->computeEnergy(moveParams.seed, model->particles[moveParams.seed].cell, 
         &model->particles[moveParams.seed].position[0],
         &model->particles[moveParams.seed].orientation[0],
-        &model->particles[moveParams.seed].patchstates[0]);
+        &model->particles[moveParams.seed].patchstates[0], final_id_contacts, model->bonds);
     double final_state=0;
     for (unsigned int ii=0;ii< model->particles[moveParams.seed].patchstates.size();ii++) {
         final_state+=(model->particles[moveParams.seed].patchstates[ii]>0);
     }
 
 #else
-    double finalEnergy = model->computeEnergy(moveParams.seed,
-        &model->particles[moveParams.seed].position[0]);
+    double finalEnergy = model->computeEnergy(moveParams.seed, model->particles[moveParams.seed].cell, 
+        &model->particles[moveParams.seed].position[0], final_id_contacts, model->bonds);
+    double final_state=0;
+#endif
+   // Setup the variables for surface interaction
+    for (int index : init_id_contacts) {
+        if (index < init_contacts.size()) {
+            init_contacts[index] = true;
+        } else {
+            std::cout << "Error, out of boundary access when setting the neighbours" << std::endl;
+        }
+    }
+    for (int index : final_id_contacts) {
+        if (index < final_contacts.size()) {
+            final_contacts[index] = true;
+        } else {
+            std::cout << "Error, out of boundary access when setting the neighbours" << std::endl;
+        }
+    }
+
+    for (int index : final_id_contacts) {
+        delta_contacts = final_contacts[index] - init_contacts[index];
+        if (delta_contacts > 0) {
+            if (model->bonds[index] == 0) {
+                energyChange -= surf_interaction;
+            }
+            model->bonds[index]++;
+        }
+    }
+    for (int index : init_id_contacts) {
+        delta_contacts = final_contacts[index] - init_contacts[index];
+        if (delta_contacts < 0) {
+            model->bonds[index]--;
+            if (model->bonds[index] == 0) {
+                energyChange += surf_interaction;
+            }
+	}
+    }
+
+   // calculate the total energy change
+    energyChange += (finalEnergy - initialEnergy) + changenergy ;
+}
+
+
+void SingleParticleMove::proposeMove_post()
+{
+    // Variables for the surface potentials, they will be moved in another section
+    std::vector<bool> init_contacts(model->particles.size(),false); // Flag vector of the initial contacts
+    std::vector<bool> final_contacts(model->particles.size(),false); // Flag vector of the  final contacts
+    std::vector<int> init_id_contacts; // ids for the initial contacts
+    std::vector<int> final_id_contacts; //ids for the final contacts
+    final_id_contacts.reserve(model->maxInteractions);
+    init_id_contacts.reserve(model->maxInteractions);
+    energyChange=0;
+    int delta_contacts=0;
+   // Choose a seed particle.
+    moveParams.seed = rng.integer(0, model->particles.size()-1);
+    double changenergy=0;
+    // Choose a random point on the surface of the unit sphere/circle.
+    for (unsigned int i=0;i<model->box.dimension;i++)
+        moveParams.trialVector[i] = rng.normal();
+
+    // Calculate pre-move energy.
+#ifndef ISOTROPIC
+    initialEnergy = model->computeEnergy(moveParams.seed, model->particles[moveParams.seed].cell, 
+        &model->particles[moveParams.seed].position[0],
+        &model->particles[moveParams.seed].orientation[0],
+        &model->particles[moveParams.seed].patchstates[0], init_id_contacts, model->bonds);
+    double initial_state=0;
+    for (unsigned int ii=0;ii< model->particles[moveParams.seed].patchstates.size();ii++) {
+        initial_state+=(model->particles[moveParams.seed].patchstates[ii]>0);
+    }
+#else
+    initialEnergy = model->computeEnergy(moveParams.seed, model->particles[moveParams.seed].cell,
+        &model->particles[moveParams.seed].position[0], init_id_contacts, model->bonds);
+    double initial_state=0;
+#endif
+
+    // Assign a flag there
+    // Normalise the trial vector.
+    double norm = computeNorm(moveParams.trialVector);
+    for (unsigned int i=0;i<model->box.dimension;i++)
+        moveParams.trialVector[i] /= norm;
+     moveParams.isChange = false;
+     moveParams.isRotation = false;
+
+
+    // Choose the move type.
+    if (rng() < probChange)
+    {
+     	// Change patch type
+        moveParams.isChange = true;
+        moveParams.stepSize = rng();
+    } else {
+	if (rng() < probTranslate)
+        {
+            // Translation.
+            // Scale step-size to uniformly sample unit sphere/circle.
+            if (is3D) moveParams.stepSize = maxTrialTranslation*std::pow(rng(), 1.0/3.0);
+            else moveParams.stepSize = maxTrialTranslation*std::pow(rng(), 1.0/2.0);
+        } else {
+            // Rotation.
+            moveParams.isRotation = true;
+            moveParams.stepSize = maxTrialRotation*(2.0*rng()-1.0);
+        }
+    }
+
+    // Store initial coordinates/orientation.
+    moveParams.postMoveParticle = model->particles[moveParams.seed];
+    moveParams.postMoveBonds=model->bonds;
+    // Execute the move.
+    if (moveParams.isChange)
+    {
+       changenergy = changepatch(moveParams.postMoveParticle.patchstates, model->top.registerstatus[model->particles[moveParams.seed].type], moveParams.stepSize);
+    } else if (!moveParams.isRotation) // Translation.
+    {
+     	for (unsigned int i=0;i<model->box.dimension;i++)
+        {
+            moveParams.postMoveParticle.position[i] += moveParams.stepSize*moveParams.trialVector[i];
+
+        // Apply periodic boundary conditions.
+        model->box.periodicBoundaries(moveParams.postMoveParticle.position);
+
+        // Work out new cell index.
+        moveParams.postMoveParticle.cell = model->cells.getCell(moveParams.postMoveParticle);
+        }
+    } else {
+	std::vector<double> vec(model->box.dimension);
+
+        // Calculate orientation rotation vector.
+        if (is3D) rotate3D(moveParams.postMoveParticle.orientation, moveParams.trialVector, vec, moveParams.stepSize);
+        else rotate2D(moveParams.postMoveParticle.orientation, vec, moveParams.stepSize);
+
+        // Update orientation.
+        for (unsigned int i=0;i<model->box.dimension;i++)
+        {
+            moveParams.postMoveParticle.orientation[i] += vec[i];
+        }
+    }
+
+    // Calculate post-move energy.
+#ifndef ISOTROPIC
+    double finalEnergy = model->computeEnergy(moveParams.seed, moveParams.postMoveParticle.cell,   
+        &moveParams.postMoveParticle.position[0],
+        &moveParams.postMoveParticle.orientation[0],
+        &moveParams.postMoveParticle.patchstates[0], final_id_contacts, moveParams.postMoveBonds);
+    double final_state=0;
+    for (unsigned int ii=0;ii< moveParams.postMoveParticle.patchstates.size();ii++) {
+        final_state+=(moveParams.postMoveParticle.patchstates[ii]>0);
+    }
+
+#else
+    double finalEnergy = model->computeEnergy(moveParams.seed, moveParams.postMoveParticle.cell, 
+        &moveParams.postMoveParticle.position[0], final_id_contacts, moveParams.postMoveBonds);
     double final_state=0;
 #endif
 
-    energyChange = (finalEnergy - initialEnergy) + changenergy + (initialEnergy<0)*surf_interaction;
+   // Setup the variables for surface interaction
+    for (int index : init_id_contacts) {
+        if (index < init_contacts.size()) {
+            init_contacts[index] = true;
+        } else {
+            std::cout << "Error, out of boundary access when setting the neighbours" << std::endl;
+        }
+    }
+    for (int index : final_id_contacts) {
+        if (index < final_contacts.size()) {
+            final_contacts[index] = true;
+        } else {
+            std::cout << "Error, out of boundary access when setting the neighbours" << std::endl;
+        }
+    }
+
+    for (int index : final_id_contacts) {
+        delta_contacts = final_contacts[index] - init_contacts[index];
+        if (delta_contacts > 0) {
+            if (model->bonds[index] == 0) {
+                energyChange -= surf_interaction;
+            }
+            model->bonds[index]++;
+        }
+    }
+    for (int index : init_id_contacts) {
+        delta_contacts = final_contacts[index] - init_contacts[index];
+        if (delta_contacts < 0) {
+            model->bonds[index]--;
+            if (model->bonds[index] == 0) {
+                energyChange += surf_interaction;
+            }
+        }
+    }
+
+   // calculate the total energy change
+    energyChange += (finalEnergy - initialEnergy) + changenergy ;
 }
 
 bool SingleParticleMove::accept()
 {
     if (energyChange == 0) return true;
     if (energyChange == INF) return false;
-    if (rng() < exp(-energyChange)) return true;
+    if ((rng() < exp(-energyChange))) return true;
     else return false;
 }
 

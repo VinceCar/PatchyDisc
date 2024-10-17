@@ -106,3 +106,6 @@ To load a particle shape in ovito under the "Data source" panel click on "Partic
 
 
 ![Binary mixture of patchy discs](mixture.gif)
+
+## Update
+Now it is possible to specify the surface interaction as parameter in the input files. Note that this update breaks the examples listed above, a quick one will be provided in the next month.

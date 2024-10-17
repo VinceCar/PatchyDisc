@@ -61,6 +61,7 @@ unsigned int maxInteractions = 36;              // maximum number of interaction
 nlohmann::json inp;                             // inputfile json
 unsigned int nParticles;
 unsigned int nTypes;
+double surface_interaction=0; // Right now surface interaction is not 
 Top top;
 std::vector<double> boxSizeVec (dimension);
 std::string init_conf="init_conf.xyz";
@@ -269,6 +270,7 @@ void parseInitialisationBlock()
             {
                 boxSizeVec[k] = inp[name][init_mode]["box"][k];
             }
+            surface_interaction=inp[name][init_mode]["surface"];
         }
         else if (init_mode == "from_init_conf")
         {
@@ -285,6 +287,7 @@ void parseInitialisationBlock()
             {
              	boxSizeVec[k] = inp[name][init_mode]["box"][k];
             }
+            surface_interaction=inp[name][init_mode]["surface"];
             init_conf.assign(inp[name][init_mode]["init_conf"]);
             init_patch_conf.assign(inp[name][init_mode]["init_patch_conf"]);
             restart_step_counter = inp[name][init_mode]["restart_step_counter"];

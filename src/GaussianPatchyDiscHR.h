@@ -30,7 +30,7 @@ public:
         \param interactionRange_
             The potential cut-off distance (patch diameter).
      */
-    GaussianPatchyDiscHR(Box&, std::vector<Particle>&, CellList&, Top&, unsigned int, double, double);
+    GaussianPatchyDiscHR(Box&, std::vector<Particle>&, CellList&, Top&, std::vector<unsigned int>&, unsigned int, double, double);
     //! Calculate the pair energy between two particles.
     /*! \param particle1
             The index of the first particle.

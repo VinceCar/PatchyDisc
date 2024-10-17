@@ -46,7 +46,7 @@ public:
         \param interactionRange_
             The potential cut-off distance (patch diameter).
      */
-    PatchyDisc(Box&, std::vector<Particle>&, CellList&, Top&, unsigned int, double, double);
+    PatchyDisc(Box&, std::vector<Particle>&, CellList&, Top&, std::vector<unsigned int>&, unsigned int, double, double);
 
     //! Calculate the pair energy between two particles.
     /*! \param particle1

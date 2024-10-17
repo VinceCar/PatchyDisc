@@ -39,6 +39,7 @@ public:
     std::vector<double> registerstatus; //!< The register containing the probabilities of all the status.
     unsigned int cell;                  //!< The index of the cell in which the particle is located.
     unsigned int posCell;               //!< Position of particle in the corresponding cell list.
+    unsigned int contacts;
 };
 
 #endif  /* _PARTICLE_H */

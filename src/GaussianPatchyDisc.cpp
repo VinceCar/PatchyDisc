@@ -42,10 +42,11 @@ GaussianPatchyDisc::GaussianPatchyDisc(
     std::vector<Particle>& particles_,
     CellList& cells_,
     Top& top_,
+    std::vector<unsigned int>& bonds_,
     unsigned int maxInteractions_,
     double interactionEnergy_,
     double interactionRange_) :
-    Model(box_, particles_, cells_, top_, maxInteractions_, interactionEnergy_, interactionRange_),
+    Model(box_, particles_, cells_, top_, bonds_, maxInteractions_, interactionEnergy_, interactionRange_),
     top(top_)
 {
 #ifdef ISOTROPIC
@@ -139,6 +140,7 @@ double GaussianPatchyDisc::computePairEnergy(unsigned int particle1, const doubl
     double norm1=0;
     double midpointposition1=0;
     double midpointposition2=0;
+    double crossProductMagnitude=0;
     modulation = 0.0;
     modulation_status_patch=0;
     p1Angle = 0;
@@ -161,18 +163,12 @@ double GaussianPatchyDisc::computePairEnergy(unsigned int particle1, const doubl
         positionpatch2=positionpatch2*sqrt(sigmaSq[t1][t2])/2;
         distance=sqrt((positionpatch1-midpointposition1)*(positionpatch1-midpointposition1)+(positionpatch2-midpointposition2)*(positionpatch2-midpointposition2));
         if (distance_max>distance) {
-            distance_max=distance; 
+            distance_max=distance;
             scalarproduct=positionpatch1*midpointposition1+positionpatch2*midpointposition2;
             norm1=sqrt(positionpatch1*positionpatch1+positionpatch2*positionpatch2);
-            scalarproduct=2*(scalarproduct/sqrt(normSqd)/norm1); // not the scalar product anymore but lazy to name another variable
-            angletouse=acos(scalarproduct);
-            if ((scalarproduct-1)>0) {
-               angletouse=0;
-            }
-             if ((scalarproduct-1)<-2) {
-               angletouse=M_PI;
+            crossProductMagnitude = positionpatch1 * midpointposition2 - positionpatch2 * midpointposition1;
+            angletouse=atan2(crossProductMagnitude,scalarproduct);
             modulation=status1[i]; // we are using modulation here as a cheap way to store the status
-            }
         }
      }
      p1Angle=angletouse;
@@ -195,18 +191,11 @@ double GaussianPatchyDisc::computePairEnergy(unsigned int particle1, const doubl
              positionpatch1=positionpatch1-sep[0]; // vector from center to patch
              positionpatch2=positionpatch2-sep[1]; // vector from center to patch
              // scalar product inverting the direction
-             scalarproduct=-(positionpatch1*midpointposition1+positionpatch2*midpointposition2);
-             norm1=sqrt(sigmaSq[t1][t2])/2;
-             scalarproduct=2*(scalarproduct/sqrt(normSqd)/norm1);
-             angletouse=acos(scalarproduct);
-             if ((scalarproduct-1)>0) {
-       	       angletouse=0;
-       	    }
-             if ((scalarproduct-1)<-2) {
-               angletouse=M_PI;
-            modulation_status_patch=modulation*status2[j]; 
-
-            }
+            scalarproduct=positionpatch1*midpointposition1+positionpatch2*midpointposition2;
+            norm1=sqrt(positionpatch1*positionpatch1+positionpatch2*positionpatch2);
+            crossProductMagnitude = positionpatch1 * midpointposition2 - positionpatch2 * midpointposition1;
+            angletouse=atan2(crossProductMagnitude,scalarproduct);
+            modulation_status_patch=modulation*status2[j];
          }
       }
       p2Angle=angletouse;

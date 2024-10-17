@@ -18,6 +18,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <limits>
+#include <cmath>
 #include <csignal>
 #include "Box.h"
 #include "CellList.h"
@@ -31,6 +32,7 @@ Model::Model(
     std::vector<Particle>& particles_,
     CellList& cells_,
     Top& top_,
+    std::vector<unsigned int>& bonds_,
     unsigned int maxInteractions_,
     double interactionEnergy_,
     double interactionRange_) :
@@ -39,6 +41,7 @@ Model::Model(
     particles(particles_),
     cells(cells_),
     top(top_),
+    bonds(bonds_),
     maxInteractions(maxInteractions_),
     interactionEnergy(interactionEnergy_),
     interactionRange(interactionRange_)
@@ -48,9 +51,9 @@ Model::Model(
 }
 
 #ifndef ISOTROPIC
-double Model::computeEnergy(unsigned int particle, const double* position, const double* orientation, const unsigned int* status)
+double Model::computeEnergy(unsigned int particle, unsigned int cell_particle, const double* position, const double* orientation, const unsigned int* status, std::vector<int>& id_contacts, std::vector<unsigned int>& bonds)
 #else
-double Model::computeEnergy(unsigned int particle, const double* position)
+double Model::computeEnergy(unsigned int particle, unsigned int cell_particle, const double* position, std::vector<int>& id_contacts, std::vector<unsigned int>& bonds)
 #endif
 {
     // N.B. This method is somewhat redundant since the same functionality
@@ -58,13 +61,15 @@ double Model::computeEnergy(unsigned int particle, const double* position)
     // and model specific computePairEnergy methods.
 
     // Energy counter.
-    double energy = 0;
-
+    double energy=0;
+    double energy_single=0;
+    bonds[particle]=0;
     // Check all neighbouring cells including same cell.
+    bool flag_inf=false;
     for (unsigned int i=0;i<cells.getNeighbours();i++)
     {
         // Cell index.
-        unsigned int cell = cells[particles[particle].cell].neighbours[i];
+        unsigned int cell = cells[cell_particle].neighbours[i];
 
         // Check all particles within cell.
         for (unsigned int j=0;j<cells[cell].tally;j++)
@@ -77,20 +82,29 @@ double Model::computeEnergy(unsigned int particle, const double* position)
             {
                 // Calculate model specific pair energy.
 #ifndef ISOTROPIC
-                energy += computePairEnergy(particle, position, orientation, status,
+                energy_single = computePairEnergy(particle, position, orientation, status,
                           neighbour, &particles[neighbour].position[0],
                           &particles[neighbour].orientation[0], &particles[neighbour].patchstates[0]);
 #else
-                energy += computePairEnergy(particle, position,
+                energy_single = computePairEnergy(particle, position,
                           neighbour, &particles[neighbour].position[0]);
 #endif
-
-                // Early exit test for hard core overlaps and large finite energy repulsions.
-                if (energy > 1e8) return INF;
+                if (energy_single<0)
+                {
+                   bonds[particle]++;
+                   id_contacts.push_back(neighbour);
+                }
+                if (energy_single>=1e8)
+                {
+                    flag_inf=true;
+                }
+                energy+=energy_single;
             }
         }
     }
-
+    if (flag_inf) {
+       energy=INF;
+    }
     return energy;
 }
 
@@ -195,12 +209,13 @@ void Model::applyPostMoveUpdates(unsigned int particle, const double* position)
 double Model::getEnergy()
 {
     double energy = 0;
+    std::vector<int> id_contacts;
 
     for (unsigned int i=0;i<particles.size();i++)
 #ifndef ISOTROPIC
-        energy += computeEnergy(i, &particles[i].position[0], &particles[i].orientation[0], &particles[i].patchstates[0]);
+        energy += computeEnergy(i, particles[i].cell, &particles[i].position[0], &particles[i].orientation[0], &particles[i].patchstates[0], id_contacts, bonds);
 #else
-        energy += computeEnergy(i, &particles[i].position[0]);
+        energy += computeEnergy(i, particles[i].cell, &particles[i].position[0], id_contacts, bonds);
 #endif
 
     return energy/(2*particles.size());

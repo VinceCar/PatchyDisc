@@ -57,13 +57,14 @@ public:
         \param interactionRange_
             The interaction range (in units of the particle diameter).
      */
-    Model(Box&, std::vector<Particle>&, CellList&, Top&, unsigned int, double, double);
+    Model(Box&, std::vector<Particle>&, CellList&, Top&, std::vector<unsigned int>&, unsigned int, double, double);
 
     virtual ~Model() = default;
     Box& box;                           //!< A reference to the simulation box.
     std::vector<Particle>& particles;   //!< A reference to the particle list.
     CellList& cells;                    //!< A reference to the cell list.
     Top& top;                           //!< A reference to the topology
+    std::vector<unsigned int>& bonds;
     //! Calculate the total interaction energy felt by a particle.
     /*! \param index
             The particle index.
@@ -79,9 +80,9 @@ public:
             The total interaction energy.
      */
 #ifndef ISOTROPIC
-    virtual double computeEnergy(unsigned int, const double*, const double*, const unsigned int*);
+    virtual double computeEnergy(unsigned int, unsigned int, const double*, const double*, const unsigned int*, std::vector<int>&,  std::vector<unsigned int>&);
 #else
-    virtual double computeEnergy(unsigned int, const double*);
+    virtual double computeEnergy(unsigned int, unsigned int, const double*,  std::vector<int>&, std::vector<unsigned int>&);
 #endif
 
 
@@ -165,9 +166,9 @@ public:
             The average pair energy.
      */
     virtual double getEnergy();
+    unsigned int maxInteractions;	//!< The maximum number of interactions per particle.
 
 protected:
-    unsigned int maxInteractions;       //!< The maximum number of interactions per particle.
     double interactionEnergy;           //!< Interaction energy scale (in units of kBT).
     double interactionRange;            //!< Size of interaction range (in units of particle diameter).
     double squaredCutOffDistance;       //!< The squared cut-off distance.

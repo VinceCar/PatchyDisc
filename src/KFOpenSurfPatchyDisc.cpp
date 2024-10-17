@@ -42,10 +42,11 @@ KFOpenSurfPatchyDisc::KFOpenSurfPatchyDisc(
     std::vector<Particle>& particles_,
     CellList& cells_,
     Top& top_,
+    std::vector<unsigned int>& bonds_,
     unsigned int maxInteractions_,
     double interactionEnergy_,
     double interactionRange_) :
-    Model(box_, particles_, cells_, top_, maxInteractions_, interactionEnergy_, interactionRange_),
+    Model(box_, particles_, cells_, top_, bonds_, maxInteractions_, interactionEnergy_, interactionRange_),
     top(top_)
 {
 #ifdef ISOTROPIC

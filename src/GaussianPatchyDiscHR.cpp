@@ -38,10 +38,11 @@ GaussianPatchyDiscHR::GaussianPatchyDiscHR(
     std::vector<Particle>& particles_,
     CellList& cells_,
     Top& top_,
+    std::vector<unsigned int>& bonds_,
     unsigned int maxInteractions_,
     double interactionEnergy_,
     double interactionRange_) :
-    GaussianPatchyDisc(box_, particles_, cells_, top_, maxInteractions_, interactionEnergy_, interactionRange_)
+    GaussianPatchyDisc(box_, particles_, cells_, top_, bonds_, maxInteractions_, interactionEnergy_, interactionRange_)
 {
     std::cout << "# Initialised the GaussianPatchyDiscHR interaction; Derived from GaussianPatchyDisc" << std::endl;
 }
